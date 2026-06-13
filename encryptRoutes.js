@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import pool from "../db.js";
+import pool from "./db.js";
 import { sendFCM } from "../firebase-config.js";
 
 const router = express.Router();
