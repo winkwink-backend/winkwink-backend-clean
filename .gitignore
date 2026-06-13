@@ -1,0 +1,6 @@
+node_modules/
+.env
+uploads/
+*.enc
+winkwink-app-firebase-adminsdk-fbsvc-9d33aa6410.json
+
