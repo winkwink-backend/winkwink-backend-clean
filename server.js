@@ -14,6 +14,9 @@ import chatRoutes from "./chatRoutes.js";
 import uploadRoutes from "./uploadRoutes.js";   // ⭐ NUOVO
 import { registerSocketHandlers } from "./socketHandlers.js";
 
+import encryptRoutes from "./encryptRoutes.js";
+
+
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
 // Necessario per __dirname in ES Modules
@@ -26,6 +29,9 @@ app.use(express.json());
 // 🔥 PATCH: aumenta limite per messaggi audio Base64
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+
+
 
 
 // ⭐ Cartella uploads resa pubblica
@@ -65,7 +71,8 @@ app.use((req, res, next) => {
 app.use(authRoutes);
 app.use(p2pRoutes);
 app.use(chatRoutes);
-app.use("/chat", uploadRoutes);   // ⭐ NUOVO ENDPOINT UPLOAD
+app.use("/chat", uploadRoutes);   
+app.use("/encrypt", encryptRoutes);
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
