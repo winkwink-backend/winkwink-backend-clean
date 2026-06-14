@@ -5,10 +5,9 @@ import fs from "fs";
 import pool from "./db.js";
 import admin from "./firebase-config.js";
 
-
 const router = express.Router();
 
-// 📌 Cartella dove Render monta il volume
+// 📌 Cartella dove Railway monta il volume
 const UPLOAD_DIR = "/app/uploads";
 
 // Se non esiste, la creiamo
@@ -17,14 +16,34 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 // ------------------------------------------------------------
-// ⭐ MULTER — salvataggio file .wwf SENZA MODIFICHE
+// ⭐ FUNZIONE sendFCM (mancava → errore risolto)
+// ------------------------------------------------------------
+async function sendFCM({ token, data }) {
+  try {
+    await admin.messaging().send({
+      token,
+      data,
+      android: { priority: "high" }
+    });
+
+    console.log("📨 Notifica silente inviata");
+  } catch (err) {
+    console.error("❌ Errore invio FCM:", err.message);
+  }
+}
+
+// ------------------------------------------------------------
+// ⭐ MULTER — salva il file con il NOME SCELTO dall’utente
 // ------------------------------------------------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+
   filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname) || ".wwf";
-    cb(null, unique + ext);
+    // Nome scelto dall’utente (senza estensione)
+    const userFileName = req.body.fileName?.trim() || "file";
+
+    // Estensione .wwf garantita
+    cb(null, `${userFileName}.wwf`);
   }
 });
 
@@ -41,8 +60,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "File mancante" });
     }
 
-    const savedFile = req.file.filename; // nome salvato nel volume
-    const fileId = savedFile;
+    const fileId = req.file.filename; // ora è il nome scelto dall’utente
 
     console.log(`📦 [ENCRYPT] File .wwf ricevuto → ${fileId}`);
 
