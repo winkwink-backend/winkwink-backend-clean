@@ -80,7 +80,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       await sendFCM({
         token,
         data: {
-          type: "encrypted_wwf",
+         type: "encrypted_png",
           fileId,
           fileName
         }
