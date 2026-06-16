@@ -42,8 +42,9 @@ const storage = multer.diskStorage({
     // Nome scelto dall’utente (senza estensione)
     const userFileName = req.body.fileName?.trim() || "file";
 
-    // Estensione .wwf garantita
-    cb(null, `${userFileName}.wwf`);
+    // Estensione .png 
+    cb(null, `${userFileName}.png`);
+
   }
 });
 
@@ -62,7 +63,8 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
     const fileId = req.file.filename; // ora è il nome scelto dall’utente
 
-    console.log(`📦 [ENCRYPT] File .wwf ricevuto → ${fileId}`);
+    console.log(`📦 [ENCRYPT] File PNG ricevuto → ${fileId}`);
+
 
     // Recupero token FCM del ricevente
     const tokenRes = await pool.query(
@@ -93,7 +95,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Errore upload .wwf:", err.message);
+    console.error("❌ Errore upload .png:", err.message);
     return res.status(500).json({ error: err.message });
   }
 });
