@@ -17,8 +17,6 @@ import { registerSocketHandlers } from "./socketHandlers.js";
 import encryptRoutes from "./encryptRoutes.js";
 import messagesSecretRoutes from "./messagesSecretRoutes.js";
 
-
-
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
 // Necessario per __dirname in ES Modules

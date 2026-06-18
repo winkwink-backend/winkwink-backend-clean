@@ -27,7 +27,7 @@ router.post("/register", async (req, res) => {
        RETURNING *`,
       [
         messageId,
-        kmsg, // già base64 da Flutter
+        kmsg,
         senderId,
         JSON.stringify(recipients),
         metadata ? JSON.stringify(metadata) : null
@@ -67,6 +67,33 @@ router.get("/kmsg/:messageId", async (req, res) => {
   } catch (err) {
     console.error("❌ Errore /messages/kmsg/:messageId:", err.message);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------
+// 🧹 POST /messages/abort
+// Cleanup sessioni sporche lato backend
+// ---------------------------------------------------------
+router.post("/abort", async (req, res) => {
+  try {
+    const { messageId } = req.body;
+
+    if (!messageId) {
+      return res.json({ ok: false, error: "Missing messageId" });
+    }
+
+    // Se encryptRoutes ha creato global.sessions, la puliamo
+    if (global.sessions && global.sessions[messageId]) {
+      delete global.sessions[messageId];
+      console.log("🧹 [CLEANUP] Sessione rimossa per messageId:", messageId);
+    } else {
+      console.log("🧹 [CLEANUP] Nessuna sessione trovata per:", messageId);
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ Errore /messages/abort:", err.message);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
