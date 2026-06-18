@@ -15,6 +15,8 @@ import uploadRoutes from "./uploadRoutes.js";   // ⭐ NUOVO
 import { registerSocketHandlers } from "./socketHandlers.js";
 
 import encryptRoutes from "./encryptRoutes.js";
+import messagesSecretRoutes from "./messagesSecretRoutes.js";
+
 
 
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
@@ -73,6 +75,8 @@ app.use(p2pRoutes);
 app.use(chatRoutes);
 app.use("/chat", uploadRoutes);   
 app.use("/encrypt", encryptRoutes);
+app.use("/messages", messagesSecretRoutes);
+
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
