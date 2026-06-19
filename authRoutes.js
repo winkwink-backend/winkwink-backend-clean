@@ -33,9 +33,14 @@ router.post("/register", async (req, res) => {
 // ------------------------------------------------------------
 // AUTH — LOGIN (ECC / PHONE + PUBLIC KEY) (Pagina 3)
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// AUTH — LOGIN (ECC / PHONE + PUBLIC KEY) (Pagina 3)
+// ------------------------------------------------------------
 router.post("/login", async (req, res) => {
   try {
     const { phone, name, last_name, public_key, qr_data } = req.body;
+
+    // 1️⃣ Inserisci o aggiorna l'utente
     const result = await pool.query(
       `INSERT INTO users (phone, name, last_name, public_key, qr_data, peer_id)
        VALUES ($1, $2, $3, $4, $5, '0') 
@@ -48,17 +53,41 @@ router.post("/login", async (req, res) => {
        RETURNING *;`,
       [phone, name, last_name, public_key, qr_data]
     );
-    const user = result.rows[0];
 
+    let user = result.rows[0];
+
+    // 2️⃣ Se peer_id è 0 → aggiorna
     if (user.peer_id === '0' || !user.peer_id) {
       await pool.query("UPDATE users SET peer_id = $1 WHERE id = $1", [user.id]);
       user.peer_id = user.id.toString();
     }
-    res.json({ success: true, user: user });
+
+    // 3️⃣ Genera token persistente SE NON ESISTE
+    if (!user.auth_token) {
+      const crypto = await import("crypto");
+      const newToken = crypto.randomBytes(32).toString("hex");
+
+      await pool.query(
+        "UPDATE users SET auth_token = $1 WHERE id = $2",
+        [newToken, user.id]
+      );
+
+      user.auth_token = newToken;
+    }
+
+    // 4️⃣ Risposta completa
+    res.json({
+      success: true,
+      user: user,
+      authToken: user.auth_token
+    });
+
   } catch (err) {
+    console.error("❌ Errore login:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ------------------------------------------------------------
 // PASSWORD RESET — REQUEST, VERIFY, NEW (Pagine 4-5)

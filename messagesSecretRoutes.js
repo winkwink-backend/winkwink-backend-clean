@@ -46,24 +46,36 @@ router.post("/register", async (req, res) => {
 
 // ---------------------------------------------------------
 // GET /messages/kmsg/:messageId
-// Restituisce solo kmsg (base64)
+// Restituisce solo kmsg (base64) SOLO SE AUTORIZZATO
 // ---------------------------------------------------------
 router.get("/kmsg/:messageId", async (req, res) => {
   try {
     const { messageId } = req.params;
+    const userId = req.user.id; // 🔥 preso dal token persistente
 
     const result = await pool.query(
-      "SELECT kmsg FROM secret_messages WHERE message_id = $1",
-      [messageId]
+      `SELECT kmsg 
+       FROM secret_messages
+       WHERE message_id = $1
+         AND (
+              sender_id = $2
+              OR recipients @> $3
+         )`,
+      [
+        messageId,
+        userId,
+        JSON.stringify([{ id: userId }])
+      ]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "K_msg non trovata" });
+      return res.status(403).json({ error: "Non autorizzato a leggere questa chiave" });
     }
 
     return res.json({
       kmsg: result.rows[0].kmsg
     });
+
   } catch (err) {
     console.error("❌ Errore /messages/kmsg/:messageId:", err.message);
     return res.status(500).json({ error: err.message });
@@ -82,7 +94,6 @@ router.post("/abort", async (req, res) => {
       return res.json({ ok: false, error: "Missing messageId" });
     }
 
-    // Se encryptRoutes ha creato global.sessions, la puliamo
     if (global.sessions && global.sessions[messageId]) {
       delete global.sessions[messageId];
       console.log("🧹 [CLEANUP] Sessione rimossa per messageId:", messageId);

@@ -17,6 +17,9 @@ import { registerSocketHandlers } from "./socketHandlers.js";
 import encryptRoutes from "./encryptRoutes.js";
 import messagesSecretRoutes from "./messagesSecretRoutes.js";
 
+// ⭐ IMPORTANTE: aggiungiamo il middleware auth
+import authMiddleware from "./authMiddleware.js";
+
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
 // Necessario per __dirname in ES Modules
@@ -29,10 +32,6 @@ app.use(express.json());
 // 🔥 PATCH: aumenta limite per messaggi audio Base64
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-
-
-
 
 // ⭐ Cartella uploads resa pubblica
 app.use(
@@ -49,7 +48,6 @@ app.use(
     }
   })
 );
-
 
 const onlineUsers = new Map();
 const chatRooms = new Map();
@@ -73,8 +71,9 @@ app.use(p2pRoutes);
 app.use(chatRoutes);
 app.use("/chat", uploadRoutes);   
 app.use("/encrypt", encryptRoutes);
-app.use("/messages", messagesSecretRoutes);
 
+// ⭐ QUI LA PATCH: proteggiamo SOLO le rotte /messages
+app.use("/messages", authMiddleware, messagesSecretRoutes);
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
@@ -101,4 +100,3 @@ setInterval(async () => {
     console.error("❌ Errore pulizia messaggi:", err.message);
   }
 }, 1000 * 60 * 60); // ogni ora
-
