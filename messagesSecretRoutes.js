@@ -5,13 +5,15 @@ const router = express.Router();
 
 // ---------------------------------------------------------
 // POST /messages/register
-// Salva messageId + kmsg + sender + recipients + metadata
 // ---------------------------------------------------------
 router.post("/register", async (req, res) => {
   try {
+    console.log("📩 [REGISTER] BODY:", req.body);
+
     const { messageId, kmsg, senderId, recipients, metadata } = req.body;
 
     if (!messageId || !kmsg || !senderId || !recipients) {
+      console.log("❌ [REGISTER] Campi mancanti");
       return res.status(400).json({ error: "Campi mancanti" });
     }
 
@@ -34,6 +36,8 @@ router.post("/register", async (req, res) => {
       ]
     );
 
+    console.log("✅ [REGISTER] SALVATO:", result.rows[0]);
+
     return res.json({
       ok: true,
       message: result.rows[0]
@@ -46,12 +50,24 @@ router.post("/register", async (req, res) => {
 
 // ---------------------------------------------------------
 // GET /messages/kmsg/:messageId
-// Restituisce solo kmsg (base64) SOLO SE AUTORIZZATO
 // ---------------------------------------------------------
 router.get("/kmsg/:messageId", async (req, res) => {
+  console.log("🟦 [KMSG] ROUTE MATCHED!");   // <--- IMPORTANTISSIMO
+  console.log("🟦 [KMSG] PARAMS:", req.params);
+
   try {
     const { messageId } = req.params;
-    const userId = req.user.id; // 🔥 preso dal token persistente
+    const userId = req.user?.id;
+
+    console.log("🔍 [KMSG] messageId:", messageId);
+    console.log("🔍 [KMSG] userId:", userId);
+
+    if (!userId) {
+      console.log("❌ [KMSG] userId mancante nel token");
+      return res.status(401).json({ error: "Token mancante" });
+    }
+
+    console.log("📡 [KMSG] Eseguo query...");
 
     const result = await pool.query(
       `SELECT kmsg 
@@ -68,9 +84,14 @@ router.get("/kmsg/:messageId", async (req, res) => {
       ]
     );
 
+    console.log("📡 [KMSG] RISULTATO QUERY:", result.rows);
+
     if (result.rows.length === 0) {
+      console.log("❌ [KMSG] Nessuna chiave trovata o non autorizzato");
       return res.status(403).json({ error: "Non autorizzato a leggere questa chiave" });
     }
+
+    console.log("✅ [KMSG] KMSG TROVATA:", result.rows[0].kmsg);
 
     return res.json({
       kmsg: result.rows[0].kmsg
@@ -83,22 +104,24 @@ router.get("/kmsg/:messageId", async (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 🧹 POST /messages/abort
-// Cleanup sessioni sporche lato backend
+// POST /messages/abort
 // ---------------------------------------------------------
 router.post("/abort", async (req, res) => {
   try {
+    console.log("🧹 [ABORT] BODY:", req.body);
+
     const { messageId } = req.body;
 
     if (!messageId) {
+      console.log("❌ [ABORT] Missing messageId");
       return res.json({ ok: false, error: "Missing messageId" });
     }
 
     if (global.sessions && global.sessions[messageId]) {
       delete global.sessions[messageId];
-      console.log("🧹 [CLEANUP] Sessione rimossa per messageId:", messageId);
+      console.log("🧹 [ABORT] Sessione rimossa:", messageId);
     } else {
-      console.log("🧹 [CLEANUP] Nessuna sessione trovata per:", messageId);
+      console.log("🧹 [ABORT] Nessuna sessione trovata per:", messageId);
     }
 
     return res.json({ ok: true });
