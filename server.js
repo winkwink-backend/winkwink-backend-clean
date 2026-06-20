@@ -9,6 +9,8 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import userRoutes from "./userRoutes.js";
+
 import pool from "./db.js";
 import authRoutes from "./authRoutes.js";
 import p2pRoutes from "./p2pRoutes.js";
@@ -78,6 +80,17 @@ app.use("/encrypt", encryptRoutes);
 
 // ⭐ QUI LA PATCH: proteggiamo SOLO le rotte /messages
 app.use("/messages", authMiddleware, messagesSecretRoutes);
+
+app.use(authRoutes);
+app.use(p2pRoutes);
+app.use(chatRoutes);
+app.use("/chat", uploadRoutes);
+app.use("/encrypt", encryptRoutes);
+app.use("/messages", authMiddleware, messagesSecretRoutes);
+
+// ⭐ AGGIUNGERE QUI
+app.use(userRoutes);
+
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
