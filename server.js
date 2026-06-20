@@ -1,7 +1,5 @@
 console.log("📂 IL SERVER STA USANDO QUESTO FILE:", process.cwd());
 
-
-
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -9,24 +7,19 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import userRoutes from "./userRoutes.js";
-
 import pool from "./db.js";
 import authRoutes from "./authRoutes.js";
 import p2pRoutes from "./p2pRoutes.js";
 import chatRoutes from "./chatRoutes.js";
-import uploadRoutes from "./uploadRoutes.js";   // ⭐ NUOVO
-import { registerSocketHandlers } from "./socketHandlers.js";
-
+import uploadRoutes from "./uploadRoutes.js";
 import encryptRoutes from "./encryptRoutes.js";
 import messagesSecretRoutes from "./messagesSecretRoutes.js";
-
-// ⭐ IMPORTANTE: aggiungiamo il middleware auth
+import userRoutes from "./userRoutes.js";
+import { registerSocketHandlers } from "./socketHandlers.js";
 import authMiddleware from "./authMiddleware.js";
 
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
-// Necessario per __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -35,11 +28,10 @@ console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
 
 const app = express();
 app.use(cors());
-// 🔥 PATCH: aumenta limite per messaggi audio Base64
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
-// ⭐ Cartella uploads resa pubblica
+// Static uploads
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
@@ -63,7 +55,7 @@ const io = new Server(httpServer, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// ⭐ Middleware per condividere io / onlineUsers / chatRooms
+// Middleware condiviso
 app.use((req, res, next) => {
   req.io = io;
   req.onlineUsers = onlineUsers;
@@ -71,31 +63,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// ⭐ Rotte HTTP
-app.use(authRoutes);
-app.use(p2pRoutes);
-app.use(chatRoutes);
-app.use("/chat", uploadRoutes);   
-app.use("/encrypt", encryptRoutes);
-
-// ⭐ QUI LA PATCH: proteggiamo SOLO le rotte /messages
-app.use("/messages", authMiddleware, messagesSecretRoutes);
-
+// ⭐ Rotte HTTP (ORDINE CORRETTO, UNA SOLA VOLTA)
 app.use(authRoutes);
 app.use(p2pRoutes);
 app.use(chatRoutes);
 app.use("/chat", uploadRoutes);
 app.use("/encrypt", encryptRoutes);
 app.use("/messages", authMiddleware, messagesSecretRoutes);
-
-// ⭐ AGGIUNGERE QUI
 app.use(userRoutes);
-
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
 
-// ⭐ Socket (presenza + chat + WebRTC)
+// Socket
 io.on("connection", (socket) => {
   registerSocketHandlers(io, socket, pool, onlineUsers, chatRooms);
 });
@@ -105,7 +85,7 @@ httpServer.listen(PORT, () => {
   console.log(`🚀 Server + WebSocket pronti sulla porta ${PORT}`);
 });
 
-// 🧹 Pulizia automatica messaggi scaduti (ogni ora)
+// Cleanup
 setInterval(async () => {
   try {
     await pool.query(`
@@ -116,4 +96,4 @@ setInterval(async () => {
   } catch (err) {
     console.error("❌ Errore pulizia messaggi:", err.message);
   }
-}, 1000 * 60 * 60); // ogni ora
+}, 1000 * 60 * 60);
