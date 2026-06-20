@@ -1,4 +1,7 @@
 console.log("📂 IL SERVER STA USANDO QUESTO FILE:", process.cwd());
+console.log("📂 SERVER LOADED FROM:", __dirname);
+console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
+
 
 import express from "express";
 import { createServer } from "http";
