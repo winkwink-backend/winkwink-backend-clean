@@ -1,6 +1,5 @@
 console.log("📂 IL SERVER STA USANDO QUESTO FILE:", process.cwd());
-console.log("📂 SERVER LOADED FROM:", __dirname);
-console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
+
 
 
 import express from "express";
@@ -28,6 +27,9 @@ console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 // Necessario per __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+console.log("📂 SERVER LOADED FROM:", __dirname);
+console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
 
 const app = express();
 app.use(cors());
