@@ -39,24 +39,24 @@ router.get("/messages/:user1(\\d+)/:user2(\\d+)", async (req, res) => {
 
 
 // 3. SEGNA I MESSAGGI COME LETTI (Nuova funzione)
-router.patch("/messages/read", async (req, res) => {
-  try {
-    const { sender_id, receiver_id } = req.body;
-    if (!sender_id || !receiver_id) {
-      return res.status(400).json({ error: "ID mittente o destinatario mancanti" });
-    }
+//router.patch("/messages/read", async (req, res) => {
+  //try {
+//    const { sender_id, receiver_id } = req.body;
+//    if (!sender_id || !receiver_id) {
+//      return res.status(400).json({ error: "ID mittente o destinatario mancanti" });
+//    }
     
     // Chi riceve il messaggio segna come letti quelli inviati dall'altro
-    await pool.query(
-      "UPDATE messages SET is_read = TRUE WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE",
-      [sender_id, receiver_id]
-    );
+   // await pool.query(
+   //   "UPDATE messages SET is_read = TRUE WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE",
+    //  [sender_id, receiver_id]
+   // );
 
-    res.json({ success: true, message: "Stato lettura aggiornato" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+   // res.json({ success: true, message: "Stato lettura aggiornato" });
+ // } catch (err) {
+  //  res.status(500).json({ error: err.message });
+  //}
+//});
 
 // 4. RECUPERA LISTA CONVERSAZIONI ATTIVE
 router.get("/conversations/:user_id", async (req, res) => {
