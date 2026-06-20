@@ -21,7 +21,7 @@ router.post("/send-message", async (req, res) => {
 });
 
 // 2. RECUPERA CRONOLOGIA MESSAGGI TRA DUE UTENTI
-router.get("/messages/:user1/:user2", async (req, res) => {
+router.get("/messages/:user1(\\d+)/:user2(\\d+)", async (req, res) => {
   try {
     const { user1, user2 } = req.params;
     const result = await pool.query(
@@ -36,6 +36,7 @@ router.get("/messages/:user1/:user2", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // 3. SEGNA I MESSAGGI COME LETTI (Nuova funzione)
 router.patch("/messages/read", async (req, res) => {
