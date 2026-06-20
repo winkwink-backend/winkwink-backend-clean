@@ -6,13 +6,28 @@ const router = express.Router();
 // Ottieni dati profilo singolo utente
 router.get("/users/:id", async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, created_at FROM users WHERE id = $1", [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: "Utente non trovato" });
+    const result = await pool.query(
+      `SELECT 
+         id,
+         phone,
+         name,
+         last_name,
+         email,
+         qr_data
+       FROM users
+       WHERE id = $1`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: "Utente non trovato" });
+
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Aggiorna nome profilo
 router.put("/users/:id", async (req, res) => {

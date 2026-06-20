@@ -33,9 +33,6 @@ router.post("/register", async (req, res) => {
 // ------------------------------------------------------------
 // AUTH — LOGIN (ECC / PHONE + PUBLIC KEY) (Pagina 3)
 // ------------------------------------------------------------
-// ------------------------------------------------------------
-// AUTH — LOGIN (ECC / PHONE + PUBLIC KEY) (Pagina 3)
-// ------------------------------------------------------------
 router.post("/login", async (req, res) => {
   try {
     const { phone, name, last_name, public_key, qr_data } = req.body;
