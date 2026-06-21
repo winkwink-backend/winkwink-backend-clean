@@ -9,14 +9,16 @@ import { fileURLToPath } from "url";
 
 import pool from "./db.js";
 import authRoutes from "./authRoutes.js";
-import p2pRoutes from "./p2pRoutes.js";
-import chatRoutes from "./chatRoutes.js";
 import uploadRoutes from "./uploadRoutes.js";
 import encryptRoutes from "./encryptRoutes.js";
 import messagesSecretRoutes from "./messagesSecretRoutes.js";
 import userRoutes from "./userRoutes.js";
 import { registerSocketHandlers } from "./socketHandlers.js";
 import authMiddleware from "./authMiddleware.js";
+
+import p2pRoutes from "./p2pRoutes.js";
+import chatRoutes from "./chatRoutes.js";
+
 
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
@@ -65,12 +67,13 @@ app.use((req, res, next) => {
 
 // ⭐ Rotte HTTP (ORDINE CORRETTO, UNA SOLA VOLTA)
 app.use(authRoutes);
-app.use(p2pRoutes);
-app.use(chatRoutes);
-app.use("/chat", uploadRoutes);
 app.use("/encrypt", encryptRoutes);
 app.use("/messages", authMiddleware, messagesSecretRoutes);
 app.use(userRoutes);
+app.use(p2pRoutes);
+app.use(chatRoutes);
+app.use("/chat", uploadRoutes);
+
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
