@@ -51,7 +51,7 @@ router.post("/register", async (req, res) => {
 // ---------------------------------------------------------
 // GET /messages/kmsg/:messageId
 // ---------------------------------------------------------
-router.get("/kmsg/:messageId", async (req, res) => {
+router.get("/fetch-kmsg/:messageId", async (req, res) => {
   console.log("🟦 [KMSG] ROUTE MATCHED!");   // <--- IMPORTANTISSIMO
   console.log("🟦 [KMSG] PARAMS:", req.params);
 
