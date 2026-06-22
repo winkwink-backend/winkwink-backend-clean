@@ -55,7 +55,7 @@ const upload = multer({ storage });
 // ------------------------------------------------------------
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
-    const { receiverId, fileName } = req.body;
+    const { receiverId, fileName, senderId } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ error: "File mancante" });
