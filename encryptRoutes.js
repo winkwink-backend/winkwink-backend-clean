@@ -82,7 +82,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         data: {
          type: "encrypted_png",
           fileId,
-          fileName
+          fileName,
+          senderId: req.body.senderId?.toString() ?? "",
+          timestamp: Date.now().toString()
         }
       });
     } else {
