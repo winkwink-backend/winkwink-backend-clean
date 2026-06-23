@@ -84,6 +84,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
           fileId,
           fileName,
           senderId: req.body.senderId?.toString() ?? "",
+           senderName: req.body.senderName ?? "",
           timestamp: Date.now().toString()
         }
       });
