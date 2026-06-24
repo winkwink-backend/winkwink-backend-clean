@@ -35,31 +35,47 @@ router.post("/register", async (req, res) => {
 // ------------------------------------------------------------
 router.post("/login", async (req, res) => {
   try {
-    const { phone, name, last_name, public_key, qr_data } = req.body;
+    const { phone, name, last_name, public_key, qr_data, alias } = req.body;
 
-    // 1️⃣ Inserisci o aggiorna l'utente
+    // 1️⃣ Alias obbligatorio
+    if (!alias || alias.trim() === "") {
+      return res.status(400).json({ error: "ALIAS_REQUIRED" });
+    }
+
+    // 2️⃣ Alias unico
+    const aliasCheck = await pool.query(
+      "SELECT id FROM users WHERE alias = $1",
+      [alias.trim()]
+    );
+
+    if (aliasCheck.rows.length > 0) {
+      return res.status(409).json({ error: "ALIAS_TAKEN" });
+    }
+
+    // 3️⃣ Inserisci o aggiorna l'utente
     const result = await pool.query(
-      `INSERT INTO users (phone, name, last_name, public_key, qr_data, peer_id)
-       VALUES ($1, $2, $3, $4, $5, '0') 
-       ON CONFLICT (phone) 
+      `INSERT INTO users (phone, name, last_name, public_key, qr_data, alias, peer_id)
+       VALUES ($1, $2, $3, $4, $5, $6, '0')
+       ON CONFLICT (phone)
        DO UPDATE SET 
          name = EXCLUDED.name,
          last_name = EXCLUDED.last_name,
          public_key = EXCLUDED.public_key,
-         qr_data = EXCLUDED.qr_data
+         qr_data = EXCLUDED.qr_data,
+         alias = EXCLUDED.alias
        RETURNING *;`,
-      [phone, name, last_name, public_key, qr_data]
+      [phone, name, last_name, public_key, qr_data, alias.trim()]
     );
 
     let user = result.rows[0];
 
-    // 2️⃣ Se peer_id è 0 → aggiorna
+    // 4️⃣ Se peer_id è 0 → aggiorna
     if (user.peer_id === '0' || !user.peer_id) {
       await pool.query("UPDATE users SET peer_id = $1 WHERE id = $1", [user.id]);
       user.peer_id = user.id.toString();
     }
 
-    // 3️⃣ Genera token persistente SE NON ESISTE
+    // 5️⃣ Genera token persistente SE NON ESISTE
     if (!user.auth_token) {
       const crypto = await import("crypto");
       const newToken = crypto.randomBytes(32).toString("hex");
@@ -72,7 +88,7 @@ router.post("/login", async (req, res) => {
       user.auth_token = newToken;
     }
 
-    // 4️⃣ Risposta completa
+    // 6️⃣ Risposta
     res.json({
       success: true,
       user: user,
@@ -84,6 +100,7 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 // ------------------------------------------------------------
