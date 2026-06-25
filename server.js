@@ -18,6 +18,10 @@ import authMiddleware from "./authMiddleware.js";
 
 import p2pRoutes from "./p2pRoutes.js";
 import chatRoutes from "./chatRoutes.js";
+import aliasRoutes from "./aliasRoutes.js";
+import blockRoutes from "./blockRoutes.js";
+
+
 
 
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
@@ -73,6 +77,9 @@ app.use(userRoutes);
 app.use(p2pRoutes);
 app.use(chatRoutes);
 app.use("/chat", uploadRoutes);
+app.use("/alias", aliasRoutes);
+app.use("/blocklist", blockRoutes);
+
 
 
 // Healthcheck

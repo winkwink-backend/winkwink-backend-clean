@@ -7,6 +7,72 @@ export const registerSocketHandlers = (io, socket, pool, onlineUsers, chatRooms)
   });
 
   // ------------------------------------------------------------
+  // ⭐ FUNZIONI WEBSOCKET ALIAS REALTIME
+  // ------------------------------------------------------------
+  async function notifyAliasRequest(toAlias, payload) {
+    try {
+      const userRes = await pool.query(
+        "SELECT id FROM users WHERE alias = $1",
+        [toAlias]
+      );
+
+      if (userRes.rows.length === 0) return;
+
+      const userId = userRes.rows[0].id;
+      const socketId = onlineUsers.get(userId);
+
+      if (socketId) {
+        io.to(socketId).emit("alias_request_received", payload);
+        console.log("📨 WS → alias_request_received inviato a", toAlias);
+      }
+    } catch (err) {
+      console.error("❌ notifyAliasRequest:", err.message);
+    }
+  }
+
+  async function notifyAliasAccepted(toAlias, payload) {
+    try {
+      const userRes = await pool.query(
+        "SELECT id FROM users WHERE alias = $1",
+        [toAlias]
+      );
+
+      if (userRes.rows.length === 0) return;
+
+      const userId = userRes.rows[0].id;
+      const socketId = onlineUsers.get(userId);
+
+      if (socketId) {
+        io.to(socketId).emit("alias_request_accepted", payload);
+        console.log("📨 WS → alias_request_accepted inviato a", toAlias);
+      }
+    } catch (err) {
+      console.error("❌ notifyAliasAccepted:", err.message);
+    }
+  }
+
+  async function notifyAliasRejected(toAlias, payload) {
+    try {
+      const userRes = await pool.query(
+        "SELECT id FROM users WHERE alias = $1",
+        [toAlias]
+      );
+
+      if (userRes.rows.length === 0) return;
+
+      const userId = userRes.rows[0].id;
+      const socketId = onlineUsers.get(userId);
+
+      if (socketId) {
+        io.to(socketId).emit("alias_request_rejected", payload);
+        console.log("📨 WS → alias_request_rejected inviato a", toAlias);
+      }
+    } catch (err) {
+      console.error("❌ notifyAliasRejected:", err.message);
+    }
+  }
+
+  // ------------------------------------------------------------
   // PRESENZA
   // ------------------------------------------------------------
   socket.on("register", (userId) => {
@@ -72,7 +138,6 @@ export const registerSocketHandlers = (io, socket, pool, onlineUsers, chatRooms)
        ]
      );
 
-
       const saved = result.rows[0];
 
       io.to(`chat_${chat_id}`).emit("new_message", {
@@ -92,21 +157,144 @@ export const registerSocketHandlers = (io, socket, pool, onlineUsers, chatRooms)
   });
 
   // ------------------------------------------------------------
-  // SIGNALING WEBRTC (solo chat/video, non file)
+  // SIGNALING WEBRTC (con BLOCKLIST già patchata)
   // ------------------------------------------------------------
-  socket.on("offer", ({ toUserId, offer }) => {
-    const target = onlineUsers.get(toUserId);
-    if (target) io.to(target).emit("offer", { from: socket.userId, offer });
+  socket.on("offer", async ({ toUserId, offer }) => {
+    try {
+      const fromUserId = socket.userId;
+
+      const fromAliasRes = await pool.query(
+        "SELECT alias FROM users WHERE id = $1",
+        [fromUserId]
+      );
+      const toAliasRes = await pool.query(
+        "SELECT alias FROM users WHERE id = $1",
+        [toUserId]
+      );
+
+      const fromAlias = fromAliasRes.rows[0]?.alias;
+      const toAlias = toAliasRes.rows[0]?.alias;
+
+      if (!fromAlias || !toAlias) return;
+
+      const blocked = await pool.query(
+        `SELECT 1 FROM blocked_users
+         WHERE (blocker_alias = $1 AND blocked_alias = $2)
+            OR (blocker_alias = $2 AND blocked_alias = $1)`,
+        [fromAlias, toAlias]
+      );
+
+      if (blocked.rows.length > 0) {
+        console.log(`⛔ OFFER BLOCCATA tra ${fromAlias} e ${toAlias}`);
+        return;
+      }
+
+      const target = onlineUsers.get(toUserId);
+      if (target) io.to(target).emit("offer", { from: socket.userId, offer });
+
+    } catch (err) {
+      console.error("❌ Errore OFFER:", err.message);
+    }
   });
 
-  socket.on("answer", ({ toUserId, answer }) => {
-    const target = onlineUsers.get(toUserId);
-    if (target) io.to(target).emit("answer", { from: socket.userId, answer });
+  socket.on("answer", async ({ toUserId, answer }) => {
+    try {
+      const fromUserId = socket.userId;
+
+      const fromAliasRes = await pool.query(
+        "SELECT alias FROM users WHERE id = $1",
+        [fromUserId]
+      );
+      const toAliasRes = await pool.query(
+        "SELECT alias FROM users WHERE id = $1",
+        [toUserId]
+      );
+
+      const fromAlias = fromAliasRes.rows[0]?.alias;
+      const toAlias = toAliasRes.rows[0]?.alias;
+
+      const blocked = await pool.query(
+        `SELECT 1 FROM blocked_users
+         WHERE (blocker_alias = $1 AND blocked_alias = $2)
+            OR (blocker_alias = $2 AND blocked_alias = $1)`,
+        [fromAlias, toAlias]
+      );
+
+      if (blocked.rows.length > 0) {
+        console.log(`⛔ ANSWER BLOCCATA tra ${fromAlias} e ${toAlias}`);
+        return;
+      }
+
+      const target = onlineUsers.get(toUserId);
+      if (target) io.to(target).emit("answer", { from: socket.userId, answer });
+
+    } catch (err) {
+      console.error("❌ Errore ANSWER:", err.message);
+    }
   });
 
-  socket.on("ice_candidate", ({ toUserId, candidate }) => {
-    console.log("❄️ [ICE] da", socket.userId, "→", toUserId, candidate?.candidate);
-    const target = onlineUsers.get(toUserId);
-    if (target) io.to(target).emit("ice_candidate", { from: socket.userId, candidate });
+  socket.on("ice_candidate", async ({ toUserId, candidate }) => {
+    try {
+      const fromUserId = socket.userId;
+
+      const fromAliasRes = await pool.query(
+        "SELECT alias FROM users WHERE id = $1",
+        [fromUserId]
+      );
+      const toAliasRes = await pool.query(
+        "SELECT alias FROM users WHERE id = $1",
+        [toUserId]
+      );
+
+      const fromAlias = fromAliasRes.rows[0]?.alias;
+      const toAlias = toAliasRes.rows[0]?.alias;
+
+      const blocked = await pool.query(
+        `SELECT 1 FROM blocked_users
+         WHERE (blocker_alias = $1 AND blocked_alias = $2)
+            OR (blocker_alias = $2 AND blocked_alias = $1)`,
+        [fromAlias, toAlias]
+      );
+
+      if (blocked.rows.length > 0) {
+        console.log(`⛔ ICE BLOCCATO tra ${fromAlias} e ${toAlias}`);
+        return;
+      }
+
+      console.log("❄️ [ICE] da", socket.userId, "→", toUserId, candidate?.candidate);
+
+      const target = onlineUsers.get(toUserId);
+      if (target) io.to(target).emit("ice_candidate", { from: socket.userId, candidate });
+
+    } catch (err) {
+      console.error("❌ Errore ICE:", err.message);
+    }
+  });
+
+  // ------------------------------------------------------------
+  // ⭐ EVENTI ALIAS REALTIME (chiamati da aliasRoutes.js)
+  // ------------------------------------------------------------
+  socket.on("alias_request_emit", async ({ toAlias, fromAlias }) => {
+    await notifyAliasRequest(toAlias, {
+      type: "alias_request_received",
+      alias: fromAlias,
+      date: new Date().toISOString()
+    });
+  });
+
+  socket.on("alias_accept_emit", async ({ toAlias, fromAlias }) => {
+    await notifyAliasAccepted(toAlias, {
+      type: "alias_request_accepted",
+      alias: fromAlias,
+      date: new Date().toISOString()
+    });
+  });
+
+  socket.on("alias_reject_emit", async ({ toAlias, fromAlias }) => {
+    await notifyAliasRejected(toAlias, {
+      type: "alias_request_rejected",
+      alias: fromAlias,
+      date: new Date().toISOString()
+    });
   });
 };

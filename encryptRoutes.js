@@ -16,7 +16,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 // ------------------------------------------------------------
-// ⭐ FUNZIONE sendFCM (mancava → errore risolto)
+// ⭐ FUNZIONE sendFCM
 // ------------------------------------------------------------
 async function sendFCM({ token, data }) {
   try {
@@ -39,19 +39,15 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
 
   filename: (req, file, cb) => {
-    // Nome scelto dall’utente (senza estensione)
     const userFileName = req.body.fileName?.trim() || "file";
-
-    // Estensione .png 
     cb(null, `${userFileName}.png`);
-
   }
 });
 
 const upload = multer({ storage });
 
 // ------------------------------------------------------------
-// ⭐ UPLOAD FILE .WWF + NOTIFICA SILENTE
+// ⭐ UPLOAD FILE .PNG + NOTIFICA SILENTE
 // ------------------------------------------------------------
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
@@ -61,10 +57,58 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "File mancante" });
     }
 
-    const fileId = req.file.filename; // ora è il nome scelto dall’utente
+    // ------------------------------------------------------------
+    // ⭐ CHECK BLOCKLIST (blocca utenti molesti)
+    // ------------------------------------------------------------
+
+    // Recupero alias mittente e ricevente
+    const senderAliasRes = await pool.query(
+      "SELECT alias FROM users WHERE id = $1",
+      [senderId]
+    );
+    const receiverAliasRes = await pool.query(
+      "SELECT alias FROM users WHERE id = $1",
+      [receiverId]
+    );
+
+    const senderAlias = senderAliasRes.rows[0]?.alias;
+    const receiverAlias = receiverAliasRes.rows[0]?.alias;
+
+    if (!senderAlias || !receiverAlias) {
+      return res.status(400).json({ error: "INVALID_ALIAS" });
+    }
+
+    // 🔥 A) Il ricevente ha bloccato il mittente
+    const blockedByReceiver = await pool.query(
+      `SELECT 1 FROM blocked_users
+       WHERE blocker_alias = $1 AND blocked_alias = $2`,
+      [receiverAlias, senderAlias]
+    );
+
+    if (blockedByReceiver.rows.length > 0) {
+      console.log(`⛔ FILE BLOCCATO: ${receiverAlias} ha bloccato ${senderAlias}`);
+      return res.json({ ok: false, error: "BLOCKED_BY_RECEIVER" });
+    }
+
+    // 🔥 B) Il mittente ha bloccato il ricevente (opzionale)
+    const blockedBySender = await pool.query(
+      `SELECT 1 FROM blocked_users
+       WHERE blocker_alias = $1 AND blocked_alias = $2`,
+      [senderAlias, receiverAlias]
+    );
+
+    if (blockedBySender.rows.length > 0) {
+      console.log(`⛔ FILE BLOCCATO: ${senderAlias} ha bloccato ${receiverAlias}`);
+      return res.json({ ok: false, error: "BLOCKED_BY_SENDER" });
+    }
+
+    // ------------------------------------------------------------
+    // ⭐ SE ARRIVIAMO QUI → NON BLOCCATO → PROSEGUI
+    // ------------------------------------------------------------
+
+    const fileId = req.file.filename;
 
     console.log(`📦 [ENCRYPT] File PNG ricevuto → ${fileId}`);
-
 
     // Recupero token FCM del ricevente
     const tokenRes = await pool.query(
@@ -80,11 +124,11 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       await sendFCM({
         token,
         data: {
-         type: "encrypted_png",
+          type: "encrypted_png",
           fileId,
           fileName,
           senderId: req.body.senderId?.toString() ?? "",
-           senderName: req.body.senderName ?? "",
+          senderName: req.body.senderName ?? "",
           timestamp: Date.now().toString()
         }
       });
@@ -104,7 +148,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// ⭐ DOWNLOAD FILE .WWF (byte‑per‑byte, intatto)
+// ⭐ DOWNLOAD FILE .PNG
 // ------------------------------------------------------------
 router.get("/download/:fileId", (req, res) => {
   const fileId = req.params.fileId;
