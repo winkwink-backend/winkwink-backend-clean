@@ -18,7 +18,7 @@ router.get("/search", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT id, alias, profile_image, peer_id, public_key, version
+      `SELECT id, alias, profile_image_url, peer_id, public_key, version
        FROM users
        WHERE LOWER(alias) = LOWER($1)
        LIMIT 1`,
@@ -34,7 +34,7 @@ router.get("/search", async (req, res) => {
     return res.json({
       exists: true,
       alias: user.alias,
-      profileImage: user.profile_image,
+      profileImageUrl: user.profile_image_url,
       userId: user.id,
       peerId: user.peer_id,
       publicKey: user.public_key,
@@ -60,9 +60,7 @@ router.post("/request", async (req, res) => {
       return res.json({ success: false, error: "INVALID_DATA" });
     }
 
-    // ------------------------------------------------------------
     // ⭐ BLOCKLIST CHECK
-    // ------------------------------------------------------------
     const blocked = await pool.query(
       `SELECT 1 FROM blocked_users
        WHERE (blocker_alias = $1 AND blocked_alias = $2)
@@ -92,9 +90,6 @@ router.post("/request", async (req, res) => {
       [fromAlias, toAlias]
     );
 
-    // ⭐ WebSocket (fase 2)
-    // io.to(socketId).emit("alias_request_received", {...})
-
     return res.json({ success: true });
   } catch (err) {
     console.error("❌ Errore /alias/request:", err.message);
@@ -117,7 +112,7 @@ router.get("/contacts", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT contact_alias, profile_image, user_id, peer_id, public_key, version
+      `SELECT contact_alias, profile_image_url, user_id, peer_id, public_key, version
        FROM alias_contacts
        WHERE owner_alias = $1
        ORDER BY created_at DESC`,
@@ -127,7 +122,7 @@ router.get("/contacts", async (req, res) => {
     return res.json({
       contacts: result.rows.map((c) => ({
         alias: c.contact_alias,
-        profileImage: c.profile_image,
+        profileImageUrl: c.profile_image_url,
         userId: c.user_id,
         peerId: c.peer_id,
         publicKey: c.public_key,
@@ -154,9 +149,7 @@ router.post("/accept", async (req, res) => {
       return res.json({ success: false });
     }
 
-    // ------------------------------------------------------------
     // ⭐ BLOCKLIST CHECK
-    // ------------------------------------------------------------
     const blocked = await pool.query(
       `SELECT 1 FROM blocked_users
        WHERE (blocker_alias = $1 AND blocked_alias = $2)
@@ -177,16 +170,16 @@ router.post("/accept", async (req, res) => {
       [fromAlias, toAlias]
     );
 
-    // 2️⃣ Recupera dati utente che ha inviato la richiesta
+    // 2️⃣ Recupera dati utente A e B
     const userA = await pool.query(
-      `SELECT id, alias, profile_image, peer_id, public_key, version
+      `SELECT id, alias, profile_image_url, peer_id, public_key, version
        FROM users
        WHERE alias = $1`,
       [fromAlias]
     );
 
     const userB = await pool.query(
-      `SELECT id, alias, profile_image, peer_id, public_key, version
+      `SELECT id, alias, profile_image_url, peer_id, public_key, version
        FROM users
        WHERE alias = $1`,
       [toAlias]
@@ -202,20 +195,17 @@ router.post("/accept", async (req, res) => {
     // 3️⃣ Salva contatto reciproco
     await pool.query(
       `INSERT INTO alias_contacts
-       (owner_alias, contact_alias, profile_image, user_id, peer_id, public_key, version)
+       (owner_alias, contact_alias, profile_image_url, user_id, peer_id, public_key, version)
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [toAlias, fromAlias, A.profile_image, A.id, A.peer_id, A.public_key, A.version]
+      [toAlias, fromAlias, A.profile_image_url, A.id, A.peer_id, A.public_key, A.version]
     );
 
     await pool.query(
       `INSERT INTO alias_contacts
-       (owner_alias, contact_alias, profile_image, user_id, peer_id, public_key, version)
+       (owner_alias, contact_alias, profile_image_url, user_id, peer_id, public_key, version)
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [fromAlias, toAlias, B.profile_image, B.id, B.peer_id, B.public_key, B.version]
+      [fromAlias, toAlias, B.profile_image_url, B.id, B.peer_id, B.public_key, B.version]
     );
-
-    // ⭐ WebSocket (fase 2)
-    // io.to(socketId).emit("alias_request_accepted", {...})
 
     return res.json({ success: true });
   } catch (err) {
@@ -240,9 +230,6 @@ router.post("/reject", async (req, res) => {
        WHERE from_alias = $1 AND to_alias = $2`,
       [fromAlias, toAlias]
     );
-
-    // ⭐ WebSocket (fase 2)
-    // io.to(socketId).emit("alias_request_rejected", {...})
 
     return res.json({ success: true });
   } catch (err) {

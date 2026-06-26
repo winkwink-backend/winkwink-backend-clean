@@ -79,6 +79,8 @@ app.use(chatRoutes);
 app.use("/chat", uploadRoutes);
 app.use("/alias", aliasRoutes);
 app.use("/blocklist", blockRoutes);
+app.use("/profile", profileRoutes);
+
 
 
 
