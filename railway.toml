@@ -2,7 +2,8 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "node index.js"
+startCommand = "node server.js"
+
 
 [env]
 PORT = "8080"
