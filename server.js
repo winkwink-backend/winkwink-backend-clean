@@ -7,6 +7,9 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import identityRoutes from "./identityRoutes.js";
+
+
 import pool from "./db.js";
 import authRoutes from "./authRoutes.js";
 import uploadRoutes from "./uploadRoutes.js";
@@ -88,6 +91,8 @@ app.use("/chat", uploadRoutes);
 app.use("/alias", aliasRoutes);
 app.use("/blocklist", blockRoutes);
 app.use("/profile", profileRoutes);
+app.use("/identity", identityRoutes);
+
 
 
 
