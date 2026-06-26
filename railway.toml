@@ -1,0 +1,11 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "node index.js"
+
+[env]
+PORT = "8080"
+
+[experimental]
+websocket = true

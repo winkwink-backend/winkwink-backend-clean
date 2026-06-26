@@ -20,6 +20,7 @@ import p2pRoutes from "./p2pRoutes.js";
 import chatRoutes from "./chatRoutes.js";
 import aliasRoutes from "./aliasRoutes.js";
 import blockRoutes from "./blockRoutes.js";
+import profileRoutes from "./profileRoutes.js";
 
 
 
@@ -58,8 +59,15 @@ const chatRooms = new Map();
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+  transports: ["websocket", "polling"],
+  pingTimeout: 30000,
+  pingInterval: 25000,
 });
+
 
 // Middleware condiviso
 app.use((req, res, next) => {
