@@ -69,6 +69,15 @@ router.post("/login", async (req, res) => {
 
     let user = result.rows[0];
 
+    // ⭐ INIZIALIZZA WINKCOIN SE NON ESISTE
+    await pool.query(
+      `INSERT INTO winkcoin (user_id, balance, last_thanks_time)
+      VALUES ($1, 20, NULL)
+      ON CONFLICT (user_id) DO NOTHING`,
+     [user.id]
+    );
+
+
     // 4️⃣ Se peer_id è 0 → aggiorna
     if (user.peer_id === "0" || !user.peer_id) {
       await pool.query("UPDATE users SET peer_id = $1 WHERE id = $1", [user.id]);
