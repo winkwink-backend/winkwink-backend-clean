@@ -25,7 +25,7 @@ import blockRoutes from "./blockRoutes.js";
 import profileRoutes from "./profileRoutes.js";
 
 // ⭐ IMPORT CORRETTO ESM
-import winkcoinRoutes from "./routes/winkcoin.js";
+import winkcoinRoutes from "./winkcoin.js";
 
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
