@@ -9,7 +9,6 @@ import { fileURLToPath } from "url";
 
 import identityRoutes from "./identityRoutes.js";
 
-
 import pool from "./db.js";
 import authRoutes from "./authRoutes.js";
 import uploadRoutes from "./uploadRoutes.js";
@@ -25,8 +24,8 @@ import aliasRoutes from "./aliasRoutes.js";
 import blockRoutes from "./blockRoutes.js";
 import profileRoutes from "./profileRoutes.js";
 
-
-
+// ⭐ IMPORT CORRETTO ESM
+import winkcoinRoutes from "./routes/winkcoin.js";
 
 console.log("📍 IL FILE SOCKETHANDLERS È CARICATO DA QUI:", import.meta.url);
 
@@ -71,7 +70,6 @@ const io = new Server(httpServer, {
   pingInterval: 25000,
 });
 
-
 // Middleware condiviso
 app.use((req, res, next) => {
   req.io = io;
@@ -80,7 +78,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ⭐ Rotte HTTP (ORDINE CORRETTO, UNA SOLA VOLTA)
+// ⭐ Rotte HTTP (ORDINE CORRETTO)
 app.use(authRoutes);
 app.use("/encrypt", encryptRoutes);
 app.use("/messages", authMiddleware, messagesSecretRoutes);
@@ -93,9 +91,8 @@ app.use("/blocklist", blockRoutes);
 app.use("/profile", profileRoutes);
 app.use("/identity", identityRoutes);
 
-
-
-
+// ⭐ AGGIUNTA WINKCOIN ROUTES
+app.use("/winkcoin", winkcoinRoutes);
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
