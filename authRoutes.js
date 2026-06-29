@@ -229,6 +229,53 @@ router.get("/users/check", async (req, res) => {
 });
 
 // ------------------------------------------------------------
+// AUTH — LOGIN WEB (alias già esistente)
+// ------------------------------------------------------------
+router.post("/login-web", async (req, res) => {
+  try {
+    const { alias } = req.body;
+
+    if (!alias || alias.trim() === "") {
+      return res.status(400).json({ error: "ALIAS_REQUIRED" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM users WHERE alias = $1",
+      [alias.trim()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "ALIAS_NOT_FOUND" });
+    }
+
+    const user = result.rows[0];
+
+    // Se non ha auth_token, crealo (coerente con /login)
+    if (!user.auth_token) {
+      const crypto = await import("crypto");
+      const newToken = crypto.randomBytes(32).toString("hex");
+
+      await pool.query(
+        "UPDATE users SET auth_token = $1 WHERE id = $2",
+        [newToken, user.id]
+      );
+
+      user.auth_token = newToken;
+    }
+
+    return res.json({
+      success: true,
+      user,
+      authToken: user.auth_token,
+    });
+  } catch (err) {
+    console.error("❌ Errore login-web:", err.message);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+
+// ------------------------------------------------------------
 // FCM TOKEN UPDATE
 // ------------------------------------------------------------
 router.post("/update_fcm_token", async (req, res) => {
