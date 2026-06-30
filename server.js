@@ -38,7 +38,7 @@ console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
 const app = express();
 app.use(
   cors({
-    origin: "https://winkwink.pro",
+    origin: "https://www.winkwink.pro",
     credentials: true,
     methods: ["GET", "POST"],
   })
