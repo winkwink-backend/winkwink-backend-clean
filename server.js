@@ -36,7 +36,18 @@ console.log("📂 SERVER LOADED FROM:", __dirname);
 console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://winkwing.pro",
+    credentials: true,
+    methods: ["GET", "POST"],
+  })
+);
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
