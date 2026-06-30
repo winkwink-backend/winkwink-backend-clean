@@ -274,6 +274,161 @@ router.post("/login-web", async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// AUTH /register-web
+// ------------------------------------------------------------
+router.post("/register-web", async (req, res) => {
+  const { name, lastName, alias, phone, email, password } = req.body;
+
+  if (!name || !lastName || !alias || !phone || !email || !password) {
+    return res.status(400).json({ success: false, error: "MISSING_FIELDS" });
+  }
+
+  try {
+    const exists = await pool.query(
+      "SELECT id FROM users WHERE alias = $1",
+      [alias]
+    );
+
+    if (exists.rows.length > 0) {
+      return res.status(400).json({ success: false, error: "ALIAS_TAKEN" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO users (name, last_name, alias, phone, email, password, qr_data)
+       VALUES ($1, $2, $3, $4, $5, $6, '')
+       RETURNING *`,
+      [name, lastName, alias, phone, email, password]
+    );
+
+    const user = result.rows[0];
+
+    // genera authToken se manca
+    if (!user.auth_token) {
+      const crypto = await import("crypto");
+      const newToken = crypto.randomBytes(32).toString("hex");
+
+      await pool.query(
+        "UPDATE users SET auth_token = $1 WHERE id = $2",
+        [newToken, user.id]
+      );
+
+      user.auth_token = newToken;
+    }
+
+    return res.json({
+      success: true,
+      authToken: user.auth_token,
+      user: {
+        id: user.id,
+        alias: user.alias,
+        name: user.name,
+        lastName: user.last_name,
+        email: user.email,
+        phone: user.phone,
+        qrData: user.qr_data,
+        created_at: user.created_at
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: "SERVER_ERROR" });
+  }
+});
+
+// ------------------------------------------------------------
+// AUTH /recover-profile
+// ------------------------------------------------------------
+router.post("/recover-profile", async (req, res) => {
+  const { alias, password } = req.body;
+
+  if (!alias || !password) {
+    return res.status(400).json({ success: false, error: "MISSING_FIELDS" });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE alias = $1 AND password = $2",
+      [alias, password]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ success: false, error: "INVALID_CREDENTIALS" });
+    }
+
+    const user = result.rows[0];
+
+    return res.json({
+      success: true,
+      authToken: user.auth_token,
+      user: {
+        id: user.id,
+        alias: user.alias,
+        name: user.name,
+        lastName: user.last_name,
+        email: user.email,
+        phone: user.phone,
+        qrData: user.qr_data,
+        created_at: user.created_at
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: "SERVER_ERROR" });
+  }
+});
+
+// ------------------------------------------------------------
+// AUTH — ME (profilo utente per Web)
+// ------------------------------------------------------------
+router.get("/auth/me", async (req, res) => {
+  try {
+    // Legge authToken dai cookie
+    const token = req.cookies.authToken;
+
+    if (!token) {
+      return res.status(401).json({ error: "TOKEN_MISSING" });
+    }
+
+    // Cerca l'utente tramite authToken
+    const result = await pool.query(
+      `SELECT 
+        id,
+        alias,
+        name,
+        last_name,
+        email,
+        phone,
+        qr_data,
+        created_at
+       FROM users
+       WHERE auth_token = $1`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "INVALID_TOKEN" });
+    }
+
+    const user = result.rows[0];
+
+    // Risposta identica a Flutter
+    return res.json({
+      id: user.id,
+      alias: user.alias,
+      name: user.name,
+      lastName: user.last_name,
+      email: user.email,
+      phone: user.phone,
+      qrData: user.qr_data,
+      created_at: user.created_at
+    });
+
+  } catch (err) {
+    console.error("❌ Errore /auth/me:", err.message);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+
 
 // ------------------------------------------------------------
 // FCM TOKEN UPDATE
