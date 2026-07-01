@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import crypto from "crypto";
+import { fileURLToPath } from "url";
 import fs from "fs";
 import path from "path";
 import pool from "./db.js";
@@ -61,8 +62,11 @@ router.post("/generateKey", async (req, res) => {
       `identity_${userId}.png`
     );
 
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
     const basePng = fs.readFileSync(
-      path.join(process.cwd(), "assets", "winkwink_card.png")
+      path.join(__dirname, "assets", "winkwink_card.png")
     );
 
     const finalPng = Buffer.concat([
