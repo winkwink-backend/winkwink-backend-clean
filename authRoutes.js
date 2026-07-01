@@ -35,7 +35,7 @@ router.post("/register", async (req, res) => {
 // ------------------------------------------------------------
 router.post("/login", async (req, res) => {
   try {
-    const { phone, name, last_name, public_key, qr_data, alias } = req.body;
+    const { phone, name, last_name, public_key, qr_data, alias, password } = req.body;
 
     // 1️⃣ Alias obbligatorio
     if (!alias || alias.trim() === "") {
@@ -54,17 +54,18 @@ router.post("/login", async (req, res) => {
 
     // 3️⃣ Inserisci o aggiorna l'utente
     const result = await pool.query(
-      `INSERT INTO users (phone, name, last_name, public_key, qr_data, alias, peer_id)
-       VALUES ($1, $2, $3, $4, $5, $6, '0')
+      `INSERT INTO users (phone, name, last_name, public_key, qr_data, alias, peer_id, password)
+       VALUES ($1, $2, $3, $4, $5, $6, '0', $7)
        ON CONFLICT (phone)
        DO UPDATE SET 
          name = EXCLUDED.name,
          last_name = EXCLUDED.last_name,
          public_key = EXCLUDED.public_key,
          qr_data = EXCLUDED.qr_data,
-         alias = EXCLUDED.alias
+         alias = EXCLUDED.alias,
+         password = EXCLUDED.password
        RETURNING *;`,
-      [phone, name, last_name, public_key, qr_data, alias.trim()]
+      [phone, name, last_name, public_key, qr_data, alias.trim(), password]
     );
 
     let user = result.rows[0];
@@ -74,9 +75,8 @@ router.post("/login", async (req, res) => {
       `INSERT INTO winkcoin (user_id, balance, last_thanks_time)
       VALUES ($1, 20, NULL)
       ON CONFLICT (user_id) DO NOTHING`,
-     [user.id]
+      [user.id]
     );
-
 
     // 4️⃣ Se peer_id è 0 → aggiorna
     if (user.peer_id === "0" || !user.peer_id) {
@@ -97,7 +97,7 @@ router.post("/login", async (req, res) => {
       user.auth_token = newToken;
     }
 
-    // 6️⃣ GENERA LA WINKWINK IDENTITY KEY (PNG)
+    // 6️⃣ GENERA LA WINKWINK IDENTITY KEY (PNG) CON PASSWORD VERA
     try {
       await fetch(`${process.env.BASE_URL}/identity/generateKey`, {
         method: "POST",
@@ -105,7 +105,7 @@ router.post("/login", async (req, res) => {
         body: JSON.stringify({
           userId: user.id,
           alias: alias.trim(),
-          password: "", // per ora password non usata
+          password: password,   // ⭐ ORA È QUELLA VERA
         }),
       });
     } catch (err) {
@@ -124,6 +124,7 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ------------------------------------------------------------
 // PASSWORD RESET — REQUEST, VERIFY, NEW
