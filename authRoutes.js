@@ -275,6 +275,26 @@ router.post("/login-web", async (req, res) => {
 });
 
 // ------------------------------------------------------------
+// AUTH — LOGOUT (WEB)
+// ------------------------------------------------------------
+router.get("/logout", async (req, res) => {
+  try {
+    // Cancella il cookie authToken
+    res.clearCookie("authToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Errore logout:", err.message);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+
+// ------------------------------------------------------------
 // AUTH /register-web
 // ------------------------------------------------------------
 router.post("/register-web", async (req, res) => {
@@ -338,7 +358,7 @@ router.post("/register-web", async (req, res) => {
 // ------------------------------------------------------------
 // AUTH /recover-profile
 // ------------------------------------------------------------
-router.post("/recover-profile", async (req, res) => {
+router.post("/recoverProfile", async (req, res) => {
   const { alias, password } = req.body;
 
   if (!alias || !password) {
