@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 console.log("📂 IL SERVER STA USANDO QUESTO FILE:", process.cwd());
 
 import express from "express";
