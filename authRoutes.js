@@ -358,43 +358,55 @@ router.post("/register-web", async (req, res) => {
 // ------------------------------------------------------------
 // AUTH /recover-profile
 // ------------------------------------------------------------
-router.post("/recoverProfile", async (req, res) => {
-  const { alias, password } = req.body;
-
-  if (!alias || !password) {
-    return res.status(400).json({ success: false, error: "MISSING_FIELDS" });
-  }
-
+router.post("/identity/recoverProfile", async (req, res) => {
   try {
+    const { alias, password } = req.body;
+
+    if (!alias || !password) {
+      return res.json({ success: false, error: "MISSING_FIELDS" });
+    }
+
+    // alias: string → hash raw bytes
+    const alias_hex = sha256(alias.trim());
+    const alias_bytes = Buffer.from(alias_hex, "hex");
+
+    // password: array di numeri → Buffer
+    const password_bytes = Buffer.from(password);
+
     const result = await pool.query(
-      "SELECT * FROM users WHERE alias = $1 AND password = $2",
-      [alias, password]
+      "SELECT * FROM identity_keys WHERE alias_hash = $1 AND password_hash = $2",
+      [alias_bytes, password_bytes]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, error: "INVALID_CREDENTIALS" });
+      return res.json({ success: false, error: "NOT_FOUND" });
     }
 
-    const user = result.rows[0];
+    const identity = result.rows[0];
+
+    const userResult = await pool.query(
+      "SELECT * FROM users WHERE id = $1",
+      [identity.user_id]
+    );
+
+    const user = userResult.rows[0];
 
     return res.json({
       success: true,
-      authToken: user.auth_token,
+      authToken: identity.auth_token,
       user: {
-        id: user.id,
         alias: user.alias,
-        name: user.name,
-        lastName: user.last_name,
-        email: user.email,
         phone: user.phone,
-        qrData: user.qr_data,
-        created_at: user.created_at
-      }
+        avatarUrl: user.avatar_url,
+      },
     });
+
   } catch (err) {
-    return res.status(500).json({ success: false, error: "SERVER_ERROR" });
+    console.error("recoverProfile error:", err);
+    res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
+
 
 // ------------------------------------------------------------
 // AUTH — ME (profilo utente per Web)

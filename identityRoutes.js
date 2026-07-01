@@ -8,19 +8,37 @@ import pool from "./db.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Utility hashing
-const sha256 = (str) => crypto.createHash("sha256").update(str).digest("hex");
+// Utility hashing (hex string, come Flutter)
+const sha256 = (str: string) =>
+  crypto.createHash("sha256").update(str).digest("hex");
 
 // Firma digitale mock (per ora)
-const signPayload = (payload) =>
+const signPayload = (payload: string) =>
   crypto.createHash("sha256").update(payload).digest("hex");
 
 // Verifica firma
-const verifySignature = (payload, signature) =>
+const verifySignature = (payload: string, signature: string) =>
   signPayload(payload) === signature;
 
+// 🔧 Normalizza input da client (Flutter: string, Web: array di byte)
+function normalizeHash(value: any, shouldHash: boolean) {
+  // Se arriva già come array di byte (Web patchato)
+  if (Array.isArray(value)) {
+    return value
+      .map((b: number) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  // Se arriva come stringa (Flutter / Web non patchato)
+  if (typeof value === "string") {
+    return shouldHash ? sha256(value.trim()) : value.trim();
+  }
+
+  return "";
+}
+
 // ------------------------------------------------------------
-// ⭐ 1) GENERA PNG CON CHIAVE (chiamato da /login)
+// ⭐ 1) GENERA PNG CON CHIAVE (chiamato da /login Flutter)
 // ------------------------------------------------------------
 router.post("/generateKey", async (req, res) => {
   try {
@@ -38,14 +56,16 @@ router.post("/generateKey", async (req, res) => {
 
     const metadata = JSON.stringify({ payload, signature });
 
-    const filePath = path.join(process.cwd(), "uploads", `identity_${userId}.png`);
+    const filePath = path.join(
+      process.cwd(),
+      "uploads",
+      `identity_${userId}.png`
+    );
 
-    // PNG base (carta WinkWink)
     const basePng = fs.readFileSync(
       path.join(process.cwd(), "assets", "winkwink_card.png")
     );
 
-    // Inseriamo metadata in coda al file PNG
     const finalPng = Buffer.concat([
       basePng,
       Buffer.from("\n<!--WINKWINK_IDENTITY:" + metadata + "-->\n"),
@@ -71,19 +91,26 @@ router.post("/generateKey", async (req, res) => {
     });
   } catch (err) {
     console.error("Errore generateKey:", err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
 
 // ------------------------------------------------------------
 // ⭐ 2) RECUPERO PROFILO (alias + password)
+//    Compatibile sia con Flutter (string) che Web (array di byte)
 // ------------------------------------------------------------
 router.post("/recoverProfile", async (req, res) => {
   try {
     const { alias, password } = req.body;
 
-    const aliasHash = sha256(alias);
-    const passwordHash = sha256(password);
+    if (!alias || !password) {
+      return res.json({ success: false, error: "MISSING_FIELDS" });
+    }
+
+    // Flutter: alias/password string → hash
+    // Web: password array di byte → hex; alias string → hash
+    const aliasHash = normalizeHash(alias, true);
+    const passwordHash = normalizeHash(password, true);
 
     const result = await pool.query(
       `SELECT * FROM identity_keys WHERE alias_hash = $1 AND password_hash = $2`,
@@ -91,7 +118,7 @@ router.post("/recoverProfile", async (req, res) => {
     );
 
     if (result.rowCount === 0) {
-      return res.json({ error: "NOT_FOUND" });
+      return res.json({ success: false, error: "NOT_FOUND" });
     }
 
     const key = result.rows[0];
@@ -104,12 +131,13 @@ router.post("/recoverProfile", async (req, res) => {
     const user = userRes.rows[0];
 
     res.json({
+      success: true,
       user,
       authToken: crypto.randomBytes(32).toString("hex"),
     });
   } catch (err) {
     console.error("Errore recoverProfile:", err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
 
@@ -118,14 +146,18 @@ router.post("/recoverProfile", async (req, res) => {
 // ------------------------------------------------------------
 router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
   try {
-    const buffer = req.file.buffer;
+    const buffer = req.file?.buffer;
+    if (!buffer) {
+      return res.json({ success: false, error: "MISSING_FILE" });
+    }
+
     const text = buffer.toString();
 
     const marker = "<!--WINKWINK_IDENTITY:";
     const start = text.indexOf(marker);
 
     if (start === -1) {
-      return res.json({ error: "INVALID_FILE" });
+      return res.json({ success: false, error: "INVALID_FILE" });
     }
 
     const jsonStart = start + marker.length;
@@ -137,7 +169,7 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
     const payloadString = JSON.stringify(payload);
 
     if (!verifySignature(payloadString, signature)) {
-      return res.json({ error: "INVALID_SIGNATURE" });
+      return res.json({ success: false, error: "INVALID_SIGNATURE" });
     }
 
     const result = await pool.query(
@@ -146,7 +178,7 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
     );
 
     if (result.rowCount === 0) {
-      return res.json({ error: "NOT_FOUND" });
+      return res.json({ success: false, error: "NOT_FOUND" });
     }
 
     const key = result.rows[0];
@@ -159,12 +191,13 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
     const user = userRes.rows[0];
 
     res.json({
+      success: true,
       user,
       authToken: crypto.randomBytes(32).toString("hex"),
     });
   } catch (err) {
     console.error("Errore recoverWithKey:", err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
 
