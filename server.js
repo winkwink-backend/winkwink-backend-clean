@@ -36,22 +36,36 @@ console.log("📂 SERVER LOADED FROM:", __dirname);
 console.log("📄 FILE IN ESECUZIONE:", import.meta.url);
 
 const app = express();
+
+/* ------------------------------------------------------------
+   ⭐ CORS PATCH — VERSIONE DEFINITIVA
+------------------------------------------------------------ */
 app.use(
   cors({
     origin: "https://www.winkwink.pro",
     credentials: true,
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// Preflight OPTIONS
+app.options("*", cors());
+
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
 
+/* ------------------------------------------------------------
+   ⭐ BODY PARSER
+------------------------------------------------------------ */
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
-// Static uploads
+/* ------------------------------------------------------------
+   ⭐ STATIC UPLOADS
+------------------------------------------------------------ */
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
@@ -67,6 +81,9 @@ app.use(
   })
 );
 
+/* ------------------------------------------------------------
+   ⭐ SOCKET.IO
+------------------------------------------------------------ */
 const onlineUsers = new Map();
 const chatRooms = new Map();
 
@@ -81,7 +98,9 @@ const io = new Server(httpServer, {
   pingInterval: 25000,
 });
 
-// Middleware condiviso
+/* ------------------------------------------------------------
+   ⭐ MIDDLEWARE CONDIVISO
+------------------------------------------------------------ */
 app.use((req, res, next) => {
   req.io = io;
   req.onlineUsers = onlineUsers;
@@ -89,7 +108,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// ⭐ Rotte HTTP (ORDINE CORRETTO)
+/* ------------------------------------------------------------
+   ⭐ ROTTE HTTP (ORDINE CORRETTO)
+------------------------------------------------------------ */
 app.use(authRoutes);
 app.use("/encrypt", encryptRoutes);
 app.use("/messages", authMiddleware, messagesSecretRoutes);
@@ -102,23 +123,32 @@ app.use("/blocklist", blockRoutes);
 app.use("/profile", profileRoutes);
 app.use("/identity", identityRoutes);
 
-// ⭐ AGGIUNTA WINKCOIN ROUTES
+// ⭐ WINKCOIN
 app.use("/winkcoin", winkcoinRoutes);
 
-// Healthcheck
+/* ------------------------------------------------------------
+   ⭐ HEALTHCHECK
+------------------------------------------------------------ */
 app.get("/", (req, res) => res.send("Backend WinkWink attivo e modulare"));
 
-// Socket
+/* ------------------------------------------------------------
+   ⭐ SOCKET HANDLERS
+------------------------------------------------------------ */
 io.on("connection", (socket) => {
   registerSocketHandlers(io, socket, pool, onlineUsers, chatRooms);
 });
 
+/* ------------------------------------------------------------
+   ⭐ AVVIO SERVER
+------------------------------------------------------------ */
 const PORT = process.env.PORT || 10000;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server + WebSocket pronti sulla porta ${PORT}`);
 });
 
-// Cleanup
+/* ------------------------------------------------------------
+   ⭐ CLEANUP PERIODICO
+------------------------------------------------------------ */
 setInterval(async () => {
   try {
     await pool.query(`
@@ -130,3 +160,5 @@ setInterval(async () => {
     console.error("❌ Errore pulizia messaggi:", err.message);
   }
 }, 1000 * 60 * 60);
+
+export default app;

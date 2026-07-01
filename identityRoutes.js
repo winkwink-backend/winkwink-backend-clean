@@ -8,28 +8,27 @@ import pool from "./db.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Utility hashing (hex string, come Flutter)
-const sha256 = (str: string) =>
+// Hash SHA256 → hex string
+const sha256 = (str) =>
   crypto.createHash("sha256").update(str).digest("hex");
 
-// Firma digitale mock (per ora)
-const signPayload = (payload: string) =>
+// Firma digitale mock
+const signPayload = (payload) =>
   crypto.createHash("sha256").update(payload).digest("hex");
 
-// Verifica firma
-const verifySignature = (payload: string, signature: string) =>
+const verifySignature = (payload, signature) =>
   signPayload(payload) === signature;
 
-// 🔧 Normalizza input da client (Flutter: string, Web: array di byte)
-function normalizeHash(value: any, shouldHash: boolean) {
-  // Se arriva già come array di byte (Web patchato)
+// 🔧 Normalizza input da Web/Flutter
+function normalizeHash(value, shouldHash) {
+  // Caso Web: password come array di byte
   if (Array.isArray(value)) {
     return value
-      .map((b: number) => b.toString(16).padStart(2, "0"))
+      .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   }
 
-  // Se arriva come stringa (Flutter / Web non patchato)
+  // Caso Flutter: stringa → hash
   if (typeof value === "string") {
     return shouldHash ? sha256(value.trim()) : value.trim();
   }
@@ -38,7 +37,7 @@ function normalizeHash(value: any, shouldHash: boolean) {
 }
 
 // ------------------------------------------------------------
-// ⭐ 1) GENERA PNG CON CHIAVE (chiamato da /login Flutter)
+// ⭐ 1) GENERA PNG CON CHIAVE (Flutter)
 // ------------------------------------------------------------
 router.post("/generateKey", async (req, res) => {
   try {
@@ -97,7 +96,7 @@ router.post("/generateKey", async (req, res) => {
 
 // ------------------------------------------------------------
 // ⭐ 2) RECUPERO PROFILO (alias + password)
-//    Compatibile sia con Flutter (string) che Web (array di byte)
+//    Compatibile con Flutter (string) e Web (array di byte)
 // ------------------------------------------------------------
 router.post("/recoverProfile", async (req, res) => {
   try {
@@ -107,8 +106,6 @@ router.post("/recoverProfile", async (req, res) => {
       return res.json({ success: false, error: "MISSING_FIELDS" });
     }
 
-    // Flutter: alias/password string → hash
-    // Web: password array di byte → hex; alias string → hash
     const aliasHash = normalizeHash(alias, true);
     const passwordHash = normalizeHash(password, true);
 
