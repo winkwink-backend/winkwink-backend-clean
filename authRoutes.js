@@ -11,22 +11,33 @@ const router = express.Router();
 router.post("/register", async (req, res) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password)
       return res.status(400).json({ error: "Email and password required" });
 
-    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    // Controllo esistenza utente
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [email]
+    );
+
     if (existing.rows.length > 0)
       return res.status(409).json({ error: "User already exists" });
 
+    // Hash password
     const password_hash = await bcryptjs.hash(password, 10);
+
+    // Inserimento utente (solo email + password_hash)
     const result = await pool.query(
       "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, created_at",
       [email, password_hash]
     );
 
-    res.json({ status: "ok", user: result.rows[0] });
+    // Risposta corretta
+    return res.json({ status: "ok", user: result.rows[0] });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -35,7 +46,7 @@ router.post("/register", async (req, res) => {
 // ------------------------------------------------------------
 router.post("/login", async (req, res) => {
   try {
-    const { phone, name, last_name, public_key, qr_data, alias, password } = req.body;
+    const { phone, name, last_name, public_key, qr_data, alias, password, email } = req.body;
 
     // 1️⃣ Alias obbligatorio
     if (!alias || alias.trim() === "") {
@@ -52,39 +63,64 @@ router.post("/login", async (req, res) => {
       return res.status(409).json({ error: "ALIAS_TAKEN" });
     }
 
-    // 3️⃣ Inserisci o aggiorna l'utente
+    // 3️⃣ Hash password
+    const password_hash = await bcryptjs.hash(password, 10);
+
+    // 4️⃣ Inserisci o aggiorna l'utente con TUTTI i campi
     const result = await pool.query(
-      `INSERT INTO users (phone, name, last_name, public_key, qr_data, alias, peer_id, password)
-       VALUES ($1, $2, $3, $4, $5, $6, '0', $7)
-       ON CONFLICT (phone)
-       DO UPDATE SET 
-         name = EXCLUDED.name,
-         last_name = EXCLUDED.last_name,
-         public_key = EXCLUDED.public_key,
-         qr_data = EXCLUDED.qr_data,
-         alias = EXCLUDED.alias,
-         password = EXCLUDED.password
-       RETURNING *;`,
-      [phone, name, last_name, public_key, qr_data, alias.trim(), password]
+      `INSERT INTO users (
+        phone,
+        name,
+        last_name,
+        public_key,
+        qr_data,
+        alias,
+        peer_id,
+        email,
+        password_hash,
+        avatar_url,
+        profile_image_url
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, '0', $7, $8, NULL, NULL)
+      ON CONFLICT (phone)
+      DO UPDATE SET 
+        name = EXCLUDED.name,
+        last_name = EXCLUDED.last_name,
+        public_key = EXCLUDED.public_key,
+        qr_data = EXCLUDED.qr_data,
+        alias = EXCLUDED.alias,
+        email = EXCLUDED.email,
+        password_hash = EXCLUDED.password_hash
+      RETURNING *;`,
+      [
+        phone,
+        name,
+        last_name,
+        public_key,
+        qr_data,
+        alias.trim(),
+        email,
+        password_hash
+      ]
     );
 
     let user = result.rows[0];
 
-    // ⭐ INIZIALIZZA WINKCOIN SE NON ESISTE
+    // 5️⃣ Inizializza WinkCoin
     await pool.query(
       `INSERT INTO winkcoin (user_id, balance, last_thanks_time)
-      VALUES ($1, 20, NULL)
-      ON CONFLICT (user_id) DO NOTHING`,
+       VALUES ($1, 20, NULL)
+       ON CONFLICT (user_id) DO NOTHING`,
       [user.id]
     );
 
-    // 4️⃣ Se peer_id è 0 → aggiorna
+    // 6️⃣ Aggiorna peer_id se necessario
     if (user.peer_id === "0" || !user.peer_id) {
       await pool.query("UPDATE users SET peer_id = $1 WHERE id = $1", [user.id]);
       user.peer_id = user.id.toString();
     }
 
-    // 5️⃣ Genera token persistente SE NON ESISTE
+    // 7️⃣ Genera auth_token se manca
     if (!user.auth_token) {
       const crypto = await import("crypto");
       const newToken = crypto.randomBytes(32).toString("hex");
@@ -97,7 +133,7 @@ router.post("/login", async (req, res) => {
       user.auth_token = newToken;
     }
 
-    // 6️⃣ GENERA LA WINKWINK IDENTITY KEY (PNG) CON PASSWORD VERA
+    // 8️⃣ Genera identity key (PNG)
     try {
       await fetch(`${process.env.BASE_URL}/identity/generateKey`, {
         method: "POST",
@@ -105,14 +141,14 @@ router.post("/login", async (req, res) => {
         body: JSON.stringify({
           userId: user.id,
           alias: alias.trim(),
-          password: password,   // ⭐ ORA È QUELLA VERA
+          password: password
         }),
       });
     } catch (err) {
       console.error("❌ Errore generazione identity key:", err);
     }
 
-    // 7️⃣ Risposta
+    // 9️⃣ Risposta
     res.json({
       success: true,
       user: user,
@@ -124,7 +160,6 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // ------------------------------------------------------------
 // PASSWORD RESET — REQUEST, VERIFY, NEW
