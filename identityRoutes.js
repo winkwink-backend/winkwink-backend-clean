@@ -185,7 +185,7 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
 // ------------------------------------------------------------
 router.post("/uploadAvatar", upload.single("avatar"), async (req, res) => {
   try {
-    const userId = req.body.userId; // oppure req.user.id se hai auth
+    const userId = req.body.userId;
 
     if (!req.file) {
       return res.json({ success: false, error: "NO_FILE" });
@@ -194,20 +194,27 @@ router.post("/uploadAvatar", upload.single("avatar"), async (req, res) => {
     const avatarPath = path.join(process.cwd(), "uploads", `avatar_${userId}.png`);
     fs.writeFileSync(avatarPath, req.file.buffer);
 
+    const url = `/uploads/avatar_${userId}.png`;
+
+    // ⭐ SALVA IN ENTRAMBI I CAMPI
     await pool.query(
-      `UPDATE users SET avatar_url = $1 WHERE id = $2`,
-      [`/uploads/avatar_${userId}.png`, userId]
+      `UPDATE users 
+       SET avatar_url = $1,
+           profile_image_url = $1
+       WHERE id = $2`,
+      [url, userId]
     );
 
     res.json({
       success: true,
-      avatarUrl: `/uploads/avatar_${userId}.png`,
+      avatarUrl: url,
     });
   } catch (err) {
     console.error("Errore uploadAvatar:", err);
     res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
+
 
 // ------------------------------------------------------------
 // ⭐ 5) PROFILO /identity/me (Web + Flutter)
@@ -217,9 +224,15 @@ router.get("/me", async (req, res) => {
     const userId = req.query.userId; // oppure req.user.id
 
     const result = await pool.query(
-      `SELECT alias, phone, avatar_url FROM users WHERE id = $1`,
-      [userId]
-    );
+     `SELECT 
+        alias,
+        phone,
+        avatar_url,
+        profile_image_url
+      FROM users 
+      WHERE id = $1`,
+     [userId]
+   );
 
     if (result.rowCount === 0) {
       return res.json({ success: false, error: "NOT_FOUND" });
@@ -228,11 +241,12 @@ router.get("/me", async (req, res) => {
     const user = result.rows[0];
 
     res.json({
-      success: true,
-      user: {
-        alias: user.alias,
-        phone: user.phone,
-        avatarUrl: user.avatar_url,
+     success: true,
+     user: {
+       alias: user.alias,
+       phone: user.phone,
+       avatarUrl: user.avatar_url,
+       profileImageUrl: user.profile_image_url
       },
     });
   } catch (err) {
