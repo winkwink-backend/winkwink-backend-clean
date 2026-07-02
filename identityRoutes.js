@@ -191,23 +191,23 @@ router.post("/uploadAvatar", upload.single("avatar"), async (req, res) => {
       return res.json({ success: false, error: "NO_FILE" });
     }
 
-    const avatarPath = path.join(process.cwd(), "uploads", `avatar_${userId}.png`);
+    const filename = `avatar_${userId}.png`;
+    const avatarPath = path.join(process.cwd(), "uploads", filename);
     fs.writeFileSync(avatarPath, req.file.buffer);
 
-    const url = `/uploads/avatar_${userId}.png`;
+    const fullUrl = `${process.env.BASE_URL}/uploads/${filename}`;
 
-    // ⭐ SALVA IN ENTRAMBI I CAMPI
     await pool.query(
       `UPDATE users 
        SET avatar_url = $1,
            profile_image_url = $1
        WHERE id = $2`,
-      [url, userId]
+      [fullUrl, userId]
     );
 
     res.json({
       success: true,
-      avatarUrl: url,
+      avatarUrl: fullUrl,
     });
   } catch (err) {
     console.error("Errore uploadAvatar:", err);
