@@ -22,18 +22,12 @@ const verifySignature = (payload, signature) =>
 
 // 🔧 Normalizza input da Web/Flutter
 function normalizeHash(value, shouldHash) {
-  // Caso Web: password come array di byte
   if (Array.isArray(value)) {
-    return value
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    return value.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
-
-  // Caso Flutter: stringa → hash
   if (typeof value === "string") {
     return shouldHash ? sha256(value.trim()) : value.trim();
   }
-
   return "";
 }
 
@@ -56,18 +50,12 @@ router.post("/generateKey", async (req, res) => {
 
     const metadata = JSON.stringify({ payload, signature });
 
-    const filePath = path.join(
-      process.cwd(),
-      "uploads",
-      `identity_${userId}.png`
-    );
+    const filePath = path.join(process.cwd(), "uploads", `identity_${userId}.png`);
 
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
-    const basePng = fs.readFileSync(
-      path.join(__dirname, "assets", "winkwink_card.png")
-    );
+    const basePng = fs.readFileSync(path.join(__dirname, "assets", "winkwink_card.png"));
 
     const finalPng = Buffer.concat([
       basePng,
@@ -79,13 +67,7 @@ router.post("/generateKey", async (req, res) => {
     await pool.query(
       `INSERT INTO identity_keys (user_id, alias_hash, password_hash, signature, file_path)
        VALUES ($1, $2, $3, $4, $5)`,
-      [
-        userId,
-        payload.aliasHash,
-        payload.passwordHash,
-        signature,
-        filePath,
-      ]
+      [userId, payload.aliasHash, payload.passwordHash, signature, filePath]
     );
 
     res.json({
@@ -100,7 +82,6 @@ router.post("/generateKey", async (req, res) => {
 
 // ------------------------------------------------------------
 // ⭐ 2) RECUPERO PROFILO (alias + password)
-//    Compatibile con Flutter (string) e Web (array di byte)
 // ------------------------------------------------------------
 router.post("/recoverProfile", async (req, res) => {
   try {
@@ -124,10 +105,9 @@ router.post("/recoverProfile", async (req, res) => {
 
     const key = result.rows[0];
 
-    const userRes = await pool.query(
-      `SELECT * FROM users WHERE id = $1`,
-      [key.user_id]
-    );
+    const userRes = await pool.query(`SELECT * FROM users WHERE id = $1`, [
+      key.user_id,
+    ]);
 
     const user = userRes.rows[0];
 
@@ -153,7 +133,6 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
     }
 
     const text = buffer.toString();
-
     const marker = "<!--WINKWINK_IDENTITY:";
     const start = text.indexOf(marker);
 
@@ -184,10 +163,9 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
 
     const key = result.rows[0];
 
-    const userRes = await pool.query(
-      `SELECT * FROM users WHERE id = $1`,
-      [key.user_id]
-    );
+    const userRes = await pool.query(`SELECT * FROM users WHERE id = $1`, [
+      key.user_id,
+    ]);
 
     const user = userRes.rows[0];
 
@@ -198,6 +176,67 @@ router.post("/recoverWithKey", upload.single("file"), async (req, res) => {
     });
   } catch (err) {
     console.error("Errore recoverWithKey:", err);
+    res.status(500).json({ success: false, error: "SERVER_ERROR" });
+  }
+});
+
+// ------------------------------------------------------------
+// ⭐ 4) UPLOAD AVATAR (Flutter + Web)
+// ------------------------------------------------------------
+router.post("/uploadAvatar", upload.single("avatar"), async (req, res) => {
+  try {
+    const userId = req.body.userId; // oppure req.user.id se hai auth
+
+    if (!req.file) {
+      return res.json({ success: false, error: "NO_FILE" });
+    }
+
+    const avatarPath = path.join(process.cwd(), "uploads", `avatar_${userId}.png`);
+    fs.writeFileSync(avatarPath, req.file.buffer);
+
+    await pool.query(
+      `UPDATE users SET avatar_url = $1 WHERE id = $2`,
+      [`/uploads/avatar_${userId}.png`, userId]
+    );
+
+    res.json({
+      success: true,
+      avatarUrl: `/uploads/avatar_${userId}.png`,
+    });
+  } catch (err) {
+    console.error("Errore uploadAvatar:", err);
+    res.status(500).json({ success: false, error: "SERVER_ERROR" });
+  }
+});
+
+// ------------------------------------------------------------
+// ⭐ 5) PROFILO /identity/me (Web + Flutter)
+// ------------------------------------------------------------
+router.get("/me", async (req, res) => {
+  try {
+    const userId = req.query.userId; // oppure req.user.id
+
+    const result = await pool.query(
+      `SELECT alias, phone, avatar_url FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.json({ success: false, error: "NOT_FOUND" });
+    }
+
+    const user = result.rows[0];
+
+    res.json({
+      success: true,
+      user: {
+        alias: user.alias,
+        phone: user.phone,
+        avatarUrl: user.avatar_url,
+      },
+    });
+  } catch (err) {
+    console.error("Errore /identity/me:", err);
     res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
